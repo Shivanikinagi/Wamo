@@ -73,7 +73,7 @@ class ConsentMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
     async def verify_consent(self, session_id: str) -> bool:
-        # Check consent_db for session_id
+        # Check consent_db for session_idc
         return True
 
 app = FastAPI()

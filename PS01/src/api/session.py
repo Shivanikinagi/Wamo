@@ -19,7 +19,8 @@ from src.api.models import (
 from src.api.dependencies import (
     get_wal_logger, get_mem0_bridge, get_consent_db,
     get_cbs_preseeder, get_briefing_builder, get_briefing_speech_builder,
-    get_redis_cache, get_tokenizer, get_redpanda_producer
+    get_redis_cache, get_tokenizer, get_redpanda_producer,
+    get_theme_memory_client,
 )
 from src.core.wal import WALLogger
 from src.core.mem0_bridge import Mem0Bridge
@@ -29,6 +30,7 @@ from src.core.briefing_builder import BriefingBuilder
 from src.core.phi4_compactor import Phi4Compactor
 from src.preprocessing.tokenizer import BankingTokenizer
 from src.infra.redpanda_producer import RedpandaProducer
+from src.infra.theme_memory_client import ThemeMemoryClient
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -91,6 +93,87 @@ def _detect_language(text: str) -> str:
     return "hindi" if hi_score >= en_score else "english"
 
 
+def _merge_external_memory(briefing: Dict[str, Any], external_briefing: Dict[str, Any]) -> Dict[str, Any]:
+    """Attach external highlights to briefing and enrich context summary."""
+    if not isinstance(briefing, dict):
+        briefing = {}
+
+    total_calls = int(external_briefing.get("total_calls_found", 0) or 0)
+    if total_calls <= 0:
+        return briefing
+
+    highlights = external_briefing.get("highlights", [])
+    snippets: list[str] = []
+    for item in highlights[:2]:
+        if not isinstance(item, dict):
+            continue
+        turns = item.get("customer_highlights", [])
+        if isinstance(turns, list) and turns:
+            snippets.append(str(turns[-1]))
+
+    context_summary = str(briefing.get("context_summary", "") or "").strip()
+    external_summary = "External memory: " + (" | ".join(snippets) if snippets else f"{total_calls} prior calls")
+
+    briefing["external_memory"] = external_briefing
+    briefing["context_summary"] = f"{context_summary} | {external_summary}" if context_summary else external_summary
+    briefing["has_prior_context"] = bool(briefing.get("has_prior_context") or total_calls > 0)
+    return briefing
+
+
+def _normalize_phone_candidate(raw: str) -> Optional[str]:
+    """Return canonical +<digits> format for phone-like values, else None."""
+    if not raw:
+        return None
+
+    value = str(raw).strip()
+    if value.lower().startswith("phone:"):
+        value = value.split(":", 1)[1].strip()
+
+    digits = re.sub(r"\D", "", value)
+    if not digits:
+        return None
+
+    # Indian mobile defaults: use last 10 digits and prefix +91 when needed.
+    if len(digits) == 10:
+        return f"+91{digits}"
+    if len(digits) == 12 and digits.startswith("91"):
+        return f"+{digits}"
+    if len(digits) > 10:
+        return f"+{digits}"
+    return None
+
+
+async def _resolve_theme_customer_ref(customer_id: str, redis_cache: Optional[Any]) -> str:
+    """Resolve customer reference for Theme service, preferring phone numbers."""
+    direct_phone = _normalize_phone_candidate(customer_id)
+    if direct_phone:
+        return direct_phone
+
+    if redis_cache:
+        try:
+            cached = await redis_cache.get(f"theme_ref:{customer_id}")
+            if isinstance(cached, bytes):
+                cached = cached.decode("utf-8")
+            if isinstance(cached, str) and cached:
+                phone = _normalize_phone_candidate(cached)
+                if phone:
+                    return phone
+        except Exception:
+            pass
+
+    return customer_id
+
+
+async def _store_theme_customer_ref(customer_id: str, resolved_ref: str, redis_cache: Optional[Any]) -> None:
+    if not redis_cache:
+        return
+
+    try:
+        await redis_cache.set(f"theme_ref:{customer_id}", resolved_ref, 3600 * 24)
+    except Exception:
+        pass
+
+
 @router.post("/start")
 async def session_start(
     req: SessionStartRequest,
@@ -104,6 +187,7 @@ async def session_start(
     redis_cache: Annotated[Any, Depends(get_redis_cache)],
     redpanda_producer: Annotated[Optional[RedpandaProducer], Depends(get_redpanda_producer)],
     tokenizer: Annotated[BankingTokenizer, Depends(get_tokenizer)],
+    theme_memory_client: Annotated[ThemeMemoryClient, Depends(get_theme_memory_client)],
 ) -> SessionStartResponse:
     """
     Start a session:
@@ -130,6 +214,13 @@ async def session_start(
     
     # Step 2: Generate session_id
     session_id = f"sess_{uuid4().hex[:12]}"
+
+    theme_customer_ref = await _resolve_theme_customer_ref(req.customer_id, redis_cache)
+    await _store_theme_customer_ref(req.customer_id, theme_customer_ref, redis_cache)
+
+    # Step 2.1: Mirror session start in Theme memory service (optional).
+    if theme_memory_client and theme_memory_client.is_enabled():
+        await theme_memory_client.send_call_start(call_id=session_id, customer_ref=theme_customer_ref)
     
     # Step 3: Store in Redis (TTL 2 hours)
     if redis_cache:
@@ -138,6 +229,7 @@ async def session_start(
                 f"session:{session_id}",
                 json.dumps({
                     "customer_id": req.customer_id,
+                    "theme_customer_ref": theme_customer_ref,
                     "agent_id": req.agent_id,
                     "status": "active",
                     "started_at": datetime.now(UTC).isoformat()
@@ -169,6 +261,11 @@ async def session_start(
     
     # Step 5: Build briefing (includes conversational fields)
     briefing = await briefing_builder.build(req.customer_id)
+
+    # Step 5.1: Pull additional long-context highlights from Theme service (optional).
+    if theme_memory_client and theme_memory_client.is_enabled():
+        external = await theme_memory_client.get_briefing(theme_customer_ref)
+        briefing = _merge_external_memory(briefing, external)
 
     # Keep session language lock from customer memory for consistent future turns.
     if redis_cache:
@@ -210,7 +307,8 @@ async def session_end(
     redis_cache: Annotated[Any, Depends(get_redis_cache)],
     wal_logger: Annotated[WALLogger, Depends(get_wal_logger)],
     mem0_bridge: Annotated[Mem0Bridge, Depends(get_mem0_bridge)],
-    tokenizer: Annotated[BankingTokenizer, Depends(get_tokenizer)]
+    tokenizer: Annotated[BankingTokenizer, Depends(get_tokenizer)],
+    theme_memory_client: Annotated[ThemeMemoryClient, Depends(get_theme_memory_client)],
 ) -> SessionEndResponse:
     """
     End a session:
@@ -236,6 +334,7 @@ async def session_end(
         raise HTTPException(status_code=404, detail="session not found")
     
     customer_id = session_data.get("customer_id")
+    theme_customer_ref = session_data.get("theme_customer_ref") or await _resolve_theme_customer_ref(customer_id, redis_cache)
     agent_id = session_data.get("agent_id")
     facts_count = 0
     facts_to_compact = []
@@ -315,6 +414,23 @@ async def session_end(
             await redis_cache.delete(f"briefing:{customer_id}")
         except Exception:
             pass
+
+    # Step 6: Mirror call end to Theme memory service (optional).
+    if theme_memory_client and theme_memory_client.is_enabled():
+        duration_seconds = 0
+        started_at_raw = session_data.get("started_at") if isinstance(session_data, dict) else None
+        if isinstance(started_at_raw, str):
+            try:
+                started_at = datetime.fromisoformat(started_at_raw.replace("Z", "+00:00"))
+                duration_seconds = max(int((datetime.now(UTC) - started_at).total_seconds()), 0)
+            except Exception:
+                duration_seconds = 0
+        await theme_memory_client.send_call_end(
+            call_id=req.session_id,
+            full_transcript=req.transcript or "",
+            duration_seconds=duration_seconds,
+            customer_ref=theme_customer_ref,
+        )
     
     return SessionEndResponse(
         status="completed",
@@ -459,6 +575,7 @@ async def session_converse(
     tokenizer: Annotated[BankingTokenizer, Depends(get_tokenizer)],
     briefing_builder: Annotated[BriefingBuilder, Depends(get_briefing_builder)],
     redis_cache: Annotated[Any, Depends(get_redis_cache)],
+    theme_memory_client: Annotated[ThemeMemoryClient, Depends(get_theme_memory_client)],
 ) -> SessionConverseResponse:
     """
     Mid-session conversational exchange using ConversationAgent.
@@ -484,6 +601,7 @@ async def session_converse(
                 session_data = {}
 
         agent_id = session_data.get("agent_id") or os.getenv("AGENT_ID", "agent_unknown")
+        theme_customer_ref = session_data.get("theme_customer_ref") or await _resolve_theme_customer_ref(req.customer_id, redis_cache)
         preferred_language = session_data.get("preferred_language")
         detected_language = _detect_language(req.customer_message)
 
@@ -493,6 +611,7 @@ async def session_converse(
             if redis_cache:
                 try:
                     session_data["preferred_language"] = preferred_language
+                    session_data["theme_customer_ref"] = theme_customer_ref
                     await redis_cache.set(session_key, json.dumps(session_data), 3600 * 2)
                 except Exception:
                     pass
@@ -535,6 +654,11 @@ async def session_converse(
         
         # Step 4: Facts already written to WAL by ConversationAgent.respond()
         wal_written = bool(facts_to_update)
+
+        # Mirror each turn to Theme memory service for future retrieval (optional).
+        if theme_memory_client and theme_memory_client.is_enabled():
+            await theme_memory_client.send_transcript(req.session_id, "user", req.customer_message)
+            await theme_memory_client.send_transcript(req.session_id, "assistant", agent_response)
         
         return SessionConverseResponse(
             agent_response=agent_response,
@@ -567,6 +691,13 @@ class MemoryAddRequest(BaseModel):
     customer_id: str
     facts: list[Dict[str, Any]]
     agent_id: Optional[str] = "system"
+
+
+class ThemeRefSetRequest(BaseModel):
+    """Request to explicitly map a PS01 customer_id to a phone reference."""
+
+    customer_id: str
+    phone_number: str
 
 
 @memory_router.post("/add")
@@ -646,3 +777,34 @@ async def record_consent_endpoint(
     except Exception as e:
         logger.error(f"Error recording consent: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to record consent: {e}")
+
+
+@router.post("/theme-ref/set")
+async def set_theme_customer_ref(
+    req: ThemeRefSetRequest,
+    redis_cache: Annotated[Any, Depends(get_redis_cache)],
+) -> Dict[str, Any]:
+    """Explicitly set customer_id -> phone mapping used for Theme memory integration."""
+    resolved = _normalize_phone_candidate(req.phone_number)
+    if not resolved:
+        raise HTTPException(status_code=400, detail="invalid phone_number")
+
+    await _store_theme_customer_ref(req.customer_id, resolved, redis_cache)
+    return {
+        "status": "ok",
+        "customer_id": req.customer_id,
+        "theme_customer_ref": resolved,
+    }
+
+
+@router.get("/theme-ref/{customer_id}")
+async def get_theme_customer_ref(
+    customer_id: str,
+    redis_cache: Annotated[Any, Depends(get_redis_cache)],
+) -> Dict[str, Any]:
+    """Read the resolved Theme reference for a customer_id."""
+    resolved = await _resolve_theme_customer_ref(customer_id, redis_cache)
+    return {
+        "customer_id": customer_id,
+        "theme_customer_ref": resolved,
+    }

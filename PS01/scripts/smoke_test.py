@@ -128,6 +128,7 @@ try:
     os.environ["MEM0_HISTORY_DB_PATH"] = "./test_mem0_hist"
     os.environ["OLLAMA_API"] = "http://localhost:11434"
     
+    
     memory = init_mem0(bank_id="smoke_test")
     assert memory is not None, "Memory object is None"
     

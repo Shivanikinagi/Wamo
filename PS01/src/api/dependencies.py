@@ -22,6 +22,7 @@ from src.api.middleware import ConsentDB
 from src.preprocessing.tokenizer import BankingTokenizer
 from src.infra.redpanda_producer import RedpandaProducer
 from src.infra.redpanda_consumer import RedpandaConsumer
+from src.infra.theme_memory_client import ThemeMemoryClient
 import redis.asyncio as redis
 from typing import Optional, Annotated
 from fastapi import Depends
@@ -48,6 +49,7 @@ _branch_lock_manager: Optional[BranchLockManager] = None
 _tenant_registry: Optional[TenantRegistry] = None
 _redpanda_producer: Optional[RedpandaProducer] = None
 _redpanda_consumer: Optional[RedpandaConsumer] = None
+_theme_memory_client: Optional[ThemeMemoryClient] = None
 
 
 def _parse_redpanda_brokers() -> list[str]:
@@ -279,3 +281,11 @@ async def get_conversation_agent(
     if _conversation_agent is None:
         _conversation_agent = ConversationAgent(wal_logger=wal, mem0_bridge=mem0)
     return _conversation_agent
+
+
+async def get_theme_memory_client() -> ThemeMemoryClient:
+    """Get optional Theme memory integration client."""
+    global _theme_memory_client
+    if _theme_memory_client is None:
+        _theme_memory_client = ThemeMemoryClient()
+    return _theme_memory_client

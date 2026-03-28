@@ -3,10 +3,9 @@
 Realtime PS01 runner aligned with current API wiring.
 
 Supports:
-- Auto end-to-end flow:
-  session/start -> session/add-fact -> session/end -> session/start
+- Interactive live mode (default): no hardcoded customer prompts, direct user input to /session/converse
+- Auto end-to-end flow (optional): scripted sanity run
 - Live WAL visibility for the same customer
-- Interactive mode for repeated realtime CRUD-style operations
 """
 
 from __future__ import annotations
@@ -224,6 +223,7 @@ def run_interactive(base_url: str, wal_path: Path, customer_id: str, agent_id: s
     print("  /restart              start new session with a different agent")
     print("  /exit                 quit")
     print("  any plain text        send to /session/converse")
+    print("\nLive mode guarantee: your typed input is sent directly to API; no scripted dialogue is injected.")
 
     current_session: Optional[str] = None
     current_agent = agent_id
@@ -304,13 +304,13 @@ def run_interactive(base_url: str, wal_path: Path, customer_id: str, agent_id: s
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Realtime PS01 CRUD-like memory runner")
+    parser = argparse.ArgumentParser(description="Realtime PS01 live wiring runner")
     parser.add_argument("--api", default=os.getenv("PS01_API_URL", "http://localhost:8000"), help="API base URL")
     parser.add_argument("--wal-path", default=str(_default_wal_path()), help="WAL file path")
     parser.add_argument("--customer", default=f"judge_rt_{int(time.time())}", help="Customer ID")
     parser.add_argument("--agent", default="AGT_RT", help="Agent ID for interactive mode")
     parser.add_argument("--timeout", type=int, default=60, help="HTTP timeout seconds")
-    parser.add_argument("--mode", choices=["auto", "interactive"], default="auto", help="Run mode")
+    parser.add_argument("--mode", choices=["auto", "interactive"], default="interactive", help="Run mode")
     return parser.parse_args()
 
 
