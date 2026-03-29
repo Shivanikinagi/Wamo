@@ -4,3 +4,5 @@ redis-data/
 postgres-data/
 *.rdb
 .env
+consent.db
+**/.live-check/

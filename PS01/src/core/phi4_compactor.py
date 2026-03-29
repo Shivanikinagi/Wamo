@@ -1,3 +1,6 @@
+import asyncio
+import os
+
 import ollama
 import json
 from typing import List, Dict, Any, Optional
@@ -56,10 +59,15 @@ class Phi4Compactor:
 
         summary_text = ""
         try:
-            response = ollama.chat(
-                model='phi4-mini',
-                messages=[{'role': 'user', 'content': prompt}],
-                stream=False
+            ollama_timeout = float(os.getenv("OLLAMA_COMPACTOR_TIMEOUT_SECONDS", "3"))
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    ollama.chat,
+                    model='phi4-mini',
+                    messages=[{'role': 'user', 'content': prompt}],
+                    stream=False,
+                ),
+                timeout=ollama_timeout,
             )
             summary_text = response['message']['content']
             summary_json = json.loads(summary_text)

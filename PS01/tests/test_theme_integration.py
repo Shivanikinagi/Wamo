@@ -1,6 +1,8 @@
 """Tests for PS01 integration with Theme long-context memory service."""
 
 import json
+import os
+import tempfile
 from datetime import datetime, UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -9,6 +11,7 @@ from fastapi import BackgroundTasks
 
 from src.api.models import SessionConverseRequest, SessionEndRequest, SessionStartRequest
 from src.api.session import session_converse, session_end, session_start
+from src.core.transcript_archive import TranscriptArchive
 
 
 class _NoOpTokenizer:
@@ -33,6 +36,10 @@ class _FakeRedis:
         self._store.pop(key, None)
 
 
+def _make_archive() -> TranscriptArchive:
+    return TranscriptArchive(db_path=os.path.join(tempfile.mkdtemp(), "transcripts.db"))
+
+
 @pytest.mark.asyncio
 async def test_session_start_fetches_theme_briefing_and_merges_summary():
     req = SessionStartRequest(
@@ -55,6 +62,8 @@ async def test_session_start_fetches_theme_briefing_and_merges_summary():
         }
     )
 
+    archive = _make_archive()
+
     resp = await session_start(
         req=req,
         background_tasks=BackgroundTasks(),
@@ -68,6 +77,7 @@ async def test_session_start_fetches_theme_briefing_and_merges_summary():
         redpanda_producer=None,
         tokenizer=_NoOpTokenizer(),
         theme_memory_client=fake_theme,
+        transcript_archive=archive,
     )
 
     assert resp.status == "ready"
@@ -95,6 +105,15 @@ async def test_session_converse_pushes_user_and_assistant_turns_to_theme():
         "preferred_language": "hindi",
     }
 
+    archive = _make_archive()
+    archive.start_session(
+        session_id="sess_abc123",
+        customer_id="C001",
+        agent_id="AGENT_1",
+        preferred_language="hindi",
+        metadata={"awaiting_language_selection": False},
+    )
+
     fake_result = {
         "agent_response": "Thik hai, income update kar diya.",
         "facts_to_update": [{"type": "income", "value": "65000"}],
@@ -102,17 +121,17 @@ async def test_session_converse_pushes_user_and_assistant_turns_to_theme():
         "new_income_value": 65000,
     }
 
-    with patch("src.core.conversation_agent.ConversationAgent") as cls:
-        cls.return_value.respond.return_value = fake_result
-
-        resp = await session_converse(
-            req=req,
-            wal_logger=MagicMock(append=MagicMock()),
-            tokenizer=_NoOpTokenizer(),
-            briefing_builder=MagicMock(build=AsyncMock(return_value={})),
-            redis_cache=_FakeRedis(redis_payload),
-            theme_memory_client=fake_theme,
-        )
+    resp = await session_converse(
+        req=req,
+        wal_logger=MagicMock(append=MagicMock()),
+        tokenizer=_NoOpTokenizer(),
+        briefing_builder=MagicMock(build=AsyncMock(return_value={})),
+        redis_cache=_FakeRedis(redis_payload),
+        theme_memory_client=fake_theme,
+        transcript_archive=archive,
+        briefing_speech_builder=MagicMock(build_opening=MagicMock(return_value="Welcome")),
+        conversation_agent=MagicMock(respond=MagicMock(return_value=fake_result)),
+    )
 
     assert resp.memory_updated is True
     assert fake_theme.send_transcript.await_count == 2
@@ -139,6 +158,15 @@ async def test_session_end_sends_end_report_to_theme():
         "started_at": datetime.now(UTC).isoformat(),
     }
 
+    archive = _make_archive()
+    archive.start_session(
+        session_id="sess_end_001",
+        customer_id="C001",
+        agent_id="AGENT_1",
+        preferred_language="hinglish",
+        metadata={"awaiting_language_selection": False},
+    )
+
     resp = await session_end(
         req=req,
         background_tasks=BackgroundTasks(),
@@ -147,6 +175,7 @@ async def test_session_end_sends_end_report_to_theme():
         mem0_bridge=MagicMock(add_after_wal=AsyncMock(return_value={"status": "ok"})),
         tokenizer=_NoOpTokenizer(),
         theme_memory_client=fake_theme,
+        transcript_archive=archive,
     )
 
     assert resp.status == "completed"
@@ -173,6 +202,8 @@ async def test_session_start_uses_phone_from_customer_id_for_theme_calls():
         }
     )
 
+    archive = _make_archive()
+
     resp = await session_start(
         req=req,
         background_tasks=BackgroundTasks(),
@@ -186,6 +217,7 @@ async def test_session_start_uses_phone_from_customer_id_for_theme_calls():
         redpanda_producer=None,
         tokenizer=_NoOpTokenizer(),
         theme_memory_client=fake_theme,
+        transcript_archive=archive,
     )
 
     assert resp.status == "ready"
@@ -218,6 +250,8 @@ async def test_session_start_uses_redis_theme_ref_mapping_when_present():
         }
     )
 
+    archive = _make_archive()
+
     resp = await session_start(
         req=req,
         background_tasks=BackgroundTasks(),
@@ -231,6 +265,7 @@ async def test_session_start_uses_redis_theme_ref_mapping_when_present():
         redpanda_producer=None,
         tokenizer=_NoOpTokenizer(),
         theme_memory_client=fake_theme,
+        transcript_archive=archive,
     )
 
     assert resp.status == "ready"

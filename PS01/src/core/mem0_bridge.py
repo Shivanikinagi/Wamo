@@ -7,7 +7,10 @@ import os
 from datetime import datetime, UTC
 from typing import List, Dict, Optional
 from uuid import uuid4
-from mem0 import Memory
+try:
+    from mem0 import Memory
+except Exception:  # pragma: no cover - optional in local test environments
+    Memory = object
 from .wal import WALLogger
 from ..api.middleware import require_consent
 from ..infra import RedisCache

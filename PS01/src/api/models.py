@@ -11,6 +11,7 @@ from datetime import datetime
 class SessionStartRequest(BaseModel):
     """Request to start a new session."""
     customer_id: str
+    customer_name: Optional[str] = None
     session_type: str
     agent_id: str
     consent_id: str
@@ -29,6 +30,8 @@ class SessionStartResponse(BaseModel):
     context_summary: str = ""
     suggested_next: str = ""
     has_prior_context: bool = False
+    preferred_language: str = ""
+    awaiting_language_selection: bool = True
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -57,6 +60,7 @@ class SessionEndResponse(BaseModel):
     status: str
     facts_count: int
     compact_triggered: bool
+    transcript_archived: bool = False
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -322,6 +326,8 @@ class SessionConverseResponse(BaseModel):
     facts_extracted: List[Dict[str, Any]] = []
     memory_updated: bool = False
     wal_written: bool = False
+    preferred_language: str = ""
+    language_locked: bool = False
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -332,6 +338,8 @@ class SessionConverseResponse(BaseModel):
                 ],
                 "memory_updated": True,
                 "wal_written": True,
+                "preferred_language": "hinglish",
+                "language_locked": True,
             }
         }
     )

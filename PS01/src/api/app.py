@@ -8,8 +8,12 @@ Routes:
   - /branch/* — Branch management (Phase 7)
 """
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from src.api.middleware import ConsentMiddleware
 from src.api.session import router as session_router
 from src.api.session import memory_router as memory_router
@@ -43,11 +47,26 @@ app.include_router(feedback_router)
 app.include_router(demo_router)
 app.include_router(branch_router)
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+FRONTEND_DIR = PROJECT_ROOT / "The-Loan-Officer-Who-Never-Forgets-Theme-Long-Context-Memory-" / "app" / "static"
+FRONTEND_INDEX = FRONTEND_DIR / "index.html"
+
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok", "service": "PS-01"}
+
+
+@app.get("/")
+async def serve_frontend():
+    """Serve the local demo frontend from the existing theme UI."""
+    if FRONTEND_INDEX.exists():
+        return FileResponse(str(FRONTEND_INDEX))
+    return {"status": "ok", "message": "Frontend not found", "service": "PS-01"}
 
 
 if __name__ == "__main__":

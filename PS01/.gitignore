@@ -1,11 +1,15 @@
 *.pyc
 __pycache__/
 .pytest_cache/
+.live-check/
+.mem0_home/
+_tmp_chroma_test/
 .env
 chroma_db/
 mem0_history/
 consent.db
 *.log
+*.pid
 dist/
 build/
 *.egg-info/

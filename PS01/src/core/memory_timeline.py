@@ -22,6 +22,8 @@ class TimelineEvent:
     facts_updated: int
     facts_verified: int
     facts_flagged: int
+    fact_types: list[str]
+    highlights: list[str]
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -32,7 +34,9 @@ class TimelineEvent:
             "facts_added": self.facts_added,
             "facts_updated": self.facts_updated,
             "facts_verified": self.facts_verified,
-            "facts_flagged": self.facts_flagged
+            "facts_flagged": self.facts_flagged,
+            "fact_types": self.fact_types,
+            "highlights": self.highlights,
         }
 
 
@@ -85,8 +89,12 @@ class MemoryTimeline:
             return events
 
         # Convert to TimelineEvent dicts
-        for session_id in sorted(sessions.keys()):
-            session_data = sessions[session_id]
+        ordered_sessions = sorted(
+            sessions.items(),
+            key=lambda item: item[1].get("timestamp", ""),
+        )
+
+        for session_id, session_data in ordered_sessions:
             facts = session_data["facts"]
 
             # Count fact types
@@ -94,6 +102,8 @@ class MemoryTimeline:
             facts_updated = sum(1 for f in facts if f.get("relationship") == "updates")
             facts_verified = sum(1 for f in facts if f.get("verified") is True)
             facts_flagged = sum(1 for f in facts if f.get("source") == "pending_review")
+            fact_types = sorted({str(f.get("type", "")) for f in facts if f.get("type")})
+            highlights = self._build_highlights(facts)
 
             event = TimelineEvent(
                 session_id=session_id,
@@ -102,7 +112,9 @@ class MemoryTimeline:
                 facts_added=facts_added,
                 facts_updated=facts_updated,
                 facts_verified=facts_verified,
-                facts_flagged=facts_flagged
+                facts_flagged=facts_flagged,
+                fact_types=fact_types,
+                highlights=highlights,
             )
             events.append(event.to_dict())
 
@@ -166,6 +178,34 @@ class MemoryTimeline:
 
         # Combine facts with IDs and facts without IDs
         return list(facts_by_id.values()) + facts_list
+
+    def _build_highlights(self, facts: List[Dict[str, Any]]) -> List[str]:
+        """Create short judge-friendly highlights for each session."""
+        highlights: List[str] = []
+        for fact in facts:
+            fact_type = str(fact.get("type", "")).strip().lower()
+            value = str(fact.get("value", "")).strip()
+            if fact_type == "preferred_language" and value:
+                highlights.append(f"Language locked to {value}")
+            elif fact_type == "income" and value:
+                highlights.append(f"Income noted: {value}")
+            elif fact_type in {"co_applicant_name", "co_applicant"} and value:
+                highlights.append(f"Co-applicant discussed: {value}")
+            elif fact_type in {"loan_amount_lakh", "loan_amount"} and value:
+                highlights.append(f"Loan amount discussed: {value} lakh")
+            elif fact_type in {"property_stage", "property_status"} and value:
+                highlights.append(f"Property stage: {value}")
+            elif fact_type == "document_ready" and value:
+                highlights.append(f"Document ready: {value}")
+            elif fact_type == "tenure_years" and value:
+                highlights.append(f"Tenure preference: {value} years")
+            elif fact_type == "transcript" and value:
+                highlights.append("Full conversation archived")
+
+            if len(highlights) >= 4:
+                break
+
+        return highlights
 
     @staticmethod
     def _session_id_after(current: str, target: str) -> bool:

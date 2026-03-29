@@ -3,289 +3,875 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BrainBack.AI — Loan Officer Terminal</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>BrainBack.AI Demo Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
-            --bg: #0a0f0d;
-            --surface: #111a15;
-            --border: #1e3028;
-            --green: #00e676;
-            --green-dim: #00c853;
-            --red: #ff1744;
-            --text: #e8f5e9;
-            --muted: #4a7a5a;
-            --mono: 'DM Mono', monospace;
-            --sans: 'Sora', sans-serif;
+            --bg: #09131a;
+            --panel: rgba(12, 24, 32, 0.82);
+            --panel-strong: rgba(18, 33, 44, 0.95);
+            --line: rgba(114, 161, 181, 0.24);
+            --text: #e7f4fb;
+            --muted: #8baec0;
+            --accent: #7df2c2;
+            --accent-2: #74b7ff;
+            --warn: #ffd27a;
+            --danger: #ff7d92;
+            --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+            --radius: 24px;
+            --mono: "IBM Plex Mono", monospace;
+            --sans: "Outfit", sans-serif;
         }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: var(--sans);
+            margin: 0;
             min-height: 100vh;
+            font-family: var(--sans);
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(116, 183, 255, 0.18), transparent 26%),
+                radial-gradient(circle at top right, rgba(125, 242, 194, 0.16), transparent 22%),
+                linear-gradient(160deg, #071018 0%, #09131a 45%, #050b11 100%);
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 36px 36px;
+            mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.8), transparent 85%);
+            pointer-events: none;
+        }
+
+        .shell {
+            width: min(1180px, calc(100vw - 32px));
+            margin: 24px auto;
+            display: grid;
+            grid-template-columns: 340px minmax(0, 1fr);
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+        }
+
+        .sidebar {
+            padding: 24px;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
+            gap: 18px;
         }
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: 
-                linear-gradient(90deg, var(--surface) 1px, transparent 1px) 0 0 / 40px 40px,
-                linear-gradient(var(--surface) 1px, transparent 1px) 0 0 / 40px 40px;
-            opacity: 0.2;
-            z-index: -1;
+
+        .brand {
+            display: grid;
+            gap: 10px;
         }
-        .main-container {
-            width: 90%;
-            max-width: 800px;
-            background: rgba(17, 26, 21, 0.8);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
-            text-align: center;
-        }
-        .header {
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            font-size: 2.5rem;
-            letter-spacing: -1px;
-            margin-bottom: 5px;
-            background: linear-gradient(90deg, #fff, var(--green));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .header p {
+
+        .eyebrow {
             font-family: var(--mono);
+            font-size: 12px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 34px;
+            line-height: 1;
+            letter-spacing: -0.04em;
+        }
+
+        .brand p,
+        .note,
+        .helper {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .field-grid {
+            display: grid;
+            gap: 14px;
+        }
+
+        label {
+            display: grid;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        input,
+        select,
+        button,
+        textarea {
+            font: inherit;
+        }
+
+        input,
+        select {
+            width: 100%;
+            border: 1px solid rgba(140, 180, 199, 0.22);
+            background: rgba(7, 18, 25, 0.8);
+            color: var(--text);
+            border-radius: 16px;
+            padding: 13px 14px;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: rgba(125, 242, 194, 0.5);
+            box-shadow: 0 0 0 3px rgba(125, 242, 194, 0.12);
+        }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 16px;
+            padding: 13px 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .primary {
+            background: linear-gradient(135deg, var(--accent), #4cf0e7);
+            color: #041016;
+        }
+
+        .secondary {
+            background: rgba(116, 183, 255, 0.18);
+            color: var(--text);
+            border: 1px solid rgba(116, 183, 255, 0.22);
+        }
+
+        .danger {
+            background: rgba(255, 125, 146, 0.16);
+            color: #ffd8de;
+            border: 1px solid rgba(255, 125, 146, 0.2);
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 999px;
+            background: rgba(125, 242, 194, 0.08);
+            border: 1px solid rgba(125, 242, 194, 0.18);
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--accent);
+        }
+
+        .status-pill.offline {
+            color: var(--warn);
+            border-color: rgba(255, 210, 122, 0.2);
+            background: rgba(255, 210, 122, 0.08);
+        }
+
+        .memory-card,
+        .rules-card {
+            padding: 18px;
+            border-radius: 20px;
+            border: 1px solid rgba(140, 180, 199, 0.16);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .memory-card h2,
+        .rules-card h2,
+        .workspace h2 {
+            margin: 0 0 10px;
+            font-size: 17px;
+        }
+
+        .memory-card p,
+        .rules-card li {
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .rules-card ul {
+            margin: 0;
+            padding-left: 18px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .workspace {
+            padding: 20px;
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr) auto;
+            gap: 14px;
+            min-height: calc(100vh - 48px);
+        }
+
+        .workspace-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 6px 4px 0;
+        }
+
+        .workspace-header p {
+            margin: 4px 0 0;
+            color: var(--muted);
+        }
+
+        .memory-banner {
+            display: none;
+            padding: 16px 18px;
+            border-radius: 18px;
+            border: 1px solid rgba(116, 183, 255, 0.2);
+            background: linear-gradient(135deg, rgba(116, 183, 255, 0.14), rgba(125, 242, 194, 0.08));
+            color: var(--text);
+        }
+
+        .memory-banner.visible {
+            display: block;
+        }
+
+        .memory-banner strong {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .timeline-panel {
+            display: grid;
+            gap: 12px;
+            padding: 16px 18px;
+            border-radius: 18px;
+            border: 1px solid rgba(125, 242, 194, 0.16);
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .timeline-header strong,
+        .timeline-header span {
+            font-size: 14px;
+        }
+
+        .timeline-header span {
+            color: var(--muted);
+            font-family: var(--mono);
+        }
+
+        .timeline-list {
+            display: grid;
+            gap: 10px;
+            max-height: 220px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .timeline-item {
+            display: grid;
+            gap: 8px;
+            padding: 13px 14px;
+            border-radius: 16px;
+            background: rgba(8, 18, 25, 0.78);
+            border: 1px solid rgba(140, 180, 199, 0.14);
+        }
+
+        .timeline-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .timeline-highlights {
+            margin: 0;
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .timeline-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .timeline-tag {
+            padding: 6px 9px;
+            border-radius: 999px;
+            background: rgba(116, 183, 255, 0.12);
+            border: 1px solid rgba(116, 183, 255, 0.16);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 11px;
+        }
+
+        .transcript {
+            overflow: auto;
+            padding: 6px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .bubble {
+            display: grid;
+            gap: 6px;
+            max-width: 78%;
+            padding: 14px 16px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--panel-strong);
+            animation: rise 180ms ease;
+        }
+
+        .bubble.user {
+            margin-left: auto;
+            background: linear-gradient(135deg, rgba(125, 242, 194, 0.18), rgba(125, 242, 194, 0.08));
+            border-color: rgba(125, 242, 194, 0.22);
+        }
+
+        .bubble.ai {
+            margin-right: auto;
+            background: linear-gradient(135deg, rgba(116, 183, 255, 0.16), rgba(10, 22, 31, 0.96));
+            border-color: rgba(116, 183, 255, 0.18);
+        }
+
+        .bubble.system {
+            max-width: 100%;
+            background: rgba(255, 210, 122, 0.08);
+            border-color: rgba(255, 210, 122, 0.18);
+        }
+
+        .meta {
+            font-family: var(--mono);
+            font-size: 11px;
             color: var(--muted);
             text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 2px;
+            letter-spacing: 0.08em;
         }
-        .call-card {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 40px;
-            margin: 30px 0;
-            position: relative;
-            overflow: hidden;
+
+        .text {
+            font-size: 15px;
+            line-height: 1.6;
+            white-space: pre-wrap;
         }
-        .pulse-ring {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 100px; height: 100px;
-            border: 2px solid var(--green);
-            border-radius: 50%;
-            opacity: 0;
+
+        .composer {
+            display: grid;
+            gap: 12px;
+            padding-top: 4px;
         }
-        .active .pulse-ring {
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
-            100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
-        }
-        .btn-call {
-            width: 80px; height: 80px;
-            border-radius: 50%;
-            border: none;
-            background: var(--green);
-            color: var(--bg);
-            cursor: pointer;
+
+        .chips {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            font-size: 2rem;
-            position: relative;
-            z-index: 10;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        .btn-call:hover { transform: scale(1.1); box-shadow: 0 0 30px rgba(0, 230, 118, 0.4); }
-        .btn-call:active { transform: scale(0.95); }
-        .btn-call.active { background: var(--red); color: white; transform: rotate(135deg); }
-        .status-container {
-            margin-top: 20px;
-            font-family: var(--mono);
-            font-size: 0.9rem;
-        }
-        .status-label {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 4px;
-            background: var(--surface);
+
+        .chip {
+            border-radius: 999px;
+            padding: 9px 12px;
+            border: 1px solid rgba(140, 180, 199, 0.18);
+            background: rgba(255, 255, 255, 0.04);
             color: var(--muted);
-            margin-bottom: 10px;
+            cursor: pointer;
         }
-        .status-text { color: var(--green); font-weight: 500; }
-        .status-text.error { color: var(--red); }
-        .log-panel {
-            margin-top: 30px;
-            height: 200px;
-            background: #050807;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 15px;
-            text-align: left;
-            overflow-y: auto;
-            font-family: var(--mono);
-            font-size: 0.8rem;
-            color: #889988;
+
+        .composer-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 12px;
         }
-        .log-entry { margin-bottom: 8px; border-left: 2px solid var(--border); padding-left: 10px; }
-        .log-entry.system { color: var(--muted); }
-        .log-entry.user { color: var(--green); }
-        .log-entry.ai { color: #fff; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        textarea {
+            width: 100%;
+            min-height: 76px;
+            resize: vertical;
+            border-radius: 18px;
+            border: 1px solid rgba(140, 180, 199, 0.22);
+            background: rgba(8, 18, 25, 0.9);
+            color: var(--text);
+            padding: 15px 16px;
+        }
+
+        .send {
+            min-width: 120px;
+        }
+
+        @keyframes rise {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 980px) {
+            .shell {
+                grid-template-columns: 1fr;
+            }
+
+            .workspace {
+                min-height: auto;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .shell {
+                width: min(100vw - 18px, 100%);
+                margin: 9px auto 18px;
+            }
+
+            .sidebar,
+            .workspace {
+                padding: 16px;
+            }
+
+            .workspace-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .bubble {
+                max-width: 92%;
+            }
+
+            .composer-row {
+                grid-template-columns: 1fr;
+            }
+
+            .button-row {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="main-container">
-        <div class="header">
-            <h1>BrainBack.AI</h1>
-            <p>Loan Officer Voice System v1.0.4</p>
-        </div>
-
-        <div class="call-card" id="callCard">
-            <div class="pulse-ring"></div>
-            <button class="btn-call" id="callBtn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20 15.5c-1.25 0-2.45-.2-3.57-.57-.35-.11-.74-.03-1.02.24l-2.2 2.2c-2.83-1.44-5.15-3.75-6.59-6.59l2.2-2.21c.28-.26.36-.65.25-1C8.7 6.45 8.5 5.25 8.5 4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.5c0-.55-.45-1-1-1zM19 12h2c0-4.97-4.03-9-9-9v2c3.87 0 7 3.13 7 7zm-4 0h2c0-2.76-2.24-5-5-5v2c1.66 0 3 1.34 3 3z"/>
-                </svg>
-            </button>
-            <div class="status-container">
-                <span class="status-label">SYSTEM_STATUS</span><br>
-                <span class="status-text" id="statusText">READY_FOR_COMMUNICATION</span>
+    <main class="shell">
+        <aside class="card sidebar">
+            <div class="brand">
+                <span class="eyebrow">Demo Console</span>
+                <h1>BrainBack.AI</h1>
+                <p>Persistent customer memory for repeat loan journeys.</p>
             </div>
-        </div>
 
-        <div class="log-panel" id="logPanel">
-            <div class="log-entry system">> [INIT] Establishing cryptographic handshake...</div>
-            <div class="log-entry system">> [INIT] Syncing with Vapi Cloud Core...</div>
-        </div>
-    </div>
+            <div class="field-grid">
+                <label>
+                    Customer Reference
+                    <input id="customerId" value="phone:9876543210" placeholder="phone:9876543210 or RAJESH_001">
+                </label>
+                <label>
+                    Customer Name
+                    <input id="customerName" value="Rajesh" placeholder="Rajesh">
+                </label>
+                <label>
+                    Agent
+                    <select id="agentId">
+                        <option value="AGENT_A">Agent A</option>
+                        <option value="AGENT_B">Agent B</option>
+                        <option value="AGENT_C">Agent C</option>
+                        <option value="AGENT_D">Agent D</option>
+                    </select>
+                </label>
+            </div>
 
-    <!-- SDK Loader Script -->
-    <script type="module">
-        import Vapi from 'https://esm.sh/@vapi-ai/web';
-        window.Vapi = Vapi;
-        
-        const logPanel = document.getElementById('logPanel');
-        function addLog(msg, type='system') {
-            const div = document.createElement('div');
-            div.className = `log-entry ${type}`;
-            div.textContent = `> [${new Date().toLocaleTimeString()}] ${msg}`;
-            logPanel.appendChild(div);
-            logPanel.scrollTop = logPanel.scrollHeight;
-        }
-        addLog("Vapi SDK initialized via Secure ESM Tunnel.", "system");
-        
-        // Expose functions to window for the UI to use
-        window.addLog = addLog;
-    </script>
+            <div class="button-row">
+                <button class="primary" id="startCall">Start</button>
+                <button class="danger" id="endCall" disabled>End Session</button>
+            </div>
+
+            <div class="status-pill offline" id="statusPill">Idle</div>
+
+            <section class="memory-card">
+                <h2>Session Note</h2>
+                <p class="note">Use the same customer reference to resume a previous conversation.</p>
+            </section>
+        </aside>
+
+        <section class="card workspace">
+            <div class="workspace-header">
+                <div>
+                    <span class="eyebrow">Customer Journey</span>
+                    <h2>Conversation Timeline</h2>
+                    <p>Continue the loan journey without repeating customer details.</p>
+                </div>
+            </div>
+
+            <div class="memory-banner" id="memoryBanner">
+                <strong>Existing memory found</strong>
+                <span id="memoryText"></span>
+            </div>
+
+            <div class="timeline-panel">
+                <div class="timeline-header">
+                    <strong>Memory Timeline</strong>
+                    <span id="timelineCount">0 sessions</span>
+                </div>
+                <div class="timeline-list" id="timelineList">
+                    <div class="timeline-item">
+                        <div class="timeline-highlights">No previous sessions.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="transcript" id="transcript">
+                <div class="bubble system">
+                    <div class="meta">System</div>
+                    <div class="text">Start a session to begin.</div>
+                </div>
+            </div>
+
+            <div class="composer">
+                <div class="chips">
+                    <button class="chip" data-chip="Hinglish">Hinglish</button>
+                    <button class="chip" data-chip="Hindi">Hindi</button>
+                    <button class="chip" data-chip="English">English</button>
+                </div>
+
+                <div class="composer-row">
+                    <textarea id="messageBox" placeholder="Type customer message" disabled></textarea>
+                    <button class="primary send" id="sendMessage" disabled>Send</button>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <script>
-        let vapi = null;
-        let config = null;
-        const callBtn = document.getElementById('callBtn');
-        const callCard = document.getElementById('callCard');
-        const statusText = document.getElementById('statusText');
+        const state = {
+            sessionId: null,
+            customerId: null,
+            transcript: [],
+            preferredLanguage: "",
+            active: false
+        };
 
-        // 1. Fetch config from backend
-        async function fetchConfig() {
+        const ui = {
+            customerId: document.getElementById("customerId"),
+            customerName: document.getElementById("customerName"),
+            agentId: document.getElementById("agentId"),
+            startCall: document.getElementById("startCall"),
+            endCall: document.getElementById("endCall"),
+            sendMessage: document.getElementById("sendMessage"),
+            messageBox: document.getElementById("messageBox"),
+            transcript: document.getElementById("transcript"),
+            statusPill: document.getElementById("statusPill"),
+            memoryBanner: document.getElementById("memoryBanner"),
+            memoryText: document.getElementById("memoryText"),
+            timelineList: document.getElementById("timelineList"),
+            timelineCount: document.getElementById("timelineCount")
+        };
+
+        function setStatus(text, mode = "online") {
+            ui.statusPill.textContent = text;
+            ui.statusPill.className = mode === "online" ? "status-pill" : "status-pill offline";
+        }
+
+        function renderBubble(role, text) {
+            const bubble = document.createElement("div");
+            bubble.className = `bubble ${role}`;
+
+            const meta = document.createElement("div");
+            meta.className = "meta";
+            const label = role === "ai" ? "Agent" : role === "user" ? "Customer" : "System";
+            meta.textContent = `${label} | ${new Date().toLocaleTimeString()}`;
+
+            const content = document.createElement("div");
+            content.className = "text";
+            content.textContent = text;
+
+            bubble.append(meta, content);
+            ui.transcript.appendChild(bubble);
+            ui.transcript.scrollTop = ui.transcript.scrollHeight;
+        }
+
+        function clearTranscript() {
+            ui.transcript.innerHTML = "";
+        }
+
+        function compiledTranscript() {
+            return state.transcript
+                .map((entry) => `${entry.role === "user" ? "USER" : "AI"}: ${entry.text}`)
+                .join("\n");
+        }
+
+        function pushTranscript(role, text) {
+            state.transcript.push({ role, text });
+            renderBubble(role, text);
+        }
+
+        function setActive(active) {
+            state.active = active;
+            ui.endCall.disabled = !active;
+            ui.sendMessage.disabled = !active;
+            ui.messageBox.disabled = !active;
+            ui.startCall.disabled = active;
+        }
+
+        function formatTimelineTime(timestamp) {
+            if (!timestamp) {
+                return "unknown";
+            }
+            const parsed = new Date(timestamp);
+            if (Number.isNaN(parsed.getTime())) {
+                return timestamp;
+            }
+            return parsed.toLocaleString([], {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit"
+            });
+        }
+
+        function renderTimeline(payload) {
+            const events = payload?.events || [];
+            ui.timelineCount.textContent = `${events.length} session${events.length === 1 ? "" : "s"}`;
+            ui.timelineList.innerHTML = "";
+
+            if (!events.length) {
+                ui.timelineList.innerHTML = `
+                    <div class="timeline-item">
+                        <div class="timeline-highlights">No previous sessions.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            events
+                .slice()
+                .reverse()
+                .forEach((event) => {
+                    const item = document.createElement("div");
+                    item.className = "timeline-item";
+
+                    const meta = document.createElement("div");
+                    meta.className = "timeline-meta";
+                    meta.innerHTML = `<span>${event.agent_id || "Agent"}</span><span>${formatTimelineTime(event.timestamp)}</span>`;
+
+                    const highlights = document.createElement("div");
+                    highlights.className = "timeline-highlights";
+                    highlights.textContent = event.highlights?.length
+                        ? event.highlights.join(" • ")
+                        : "Session archived with persistent memory updates.";
+
+                    const tags = document.createElement("div");
+                    tags.className = "timeline-tags";
+                    const counters = [
+                        `${event.facts_verified || 0} verified`,
+                        `${event.facts_updated || 0} updated`,
+                        `${event.facts_added || 0} added`
+                    ];
+
+                    [...counters, ...(event.fact_types || []).slice(0, 3)].forEach((label) => {
+                        const tag = document.createElement("span");
+                        tag.className = "timeline-tag";
+                        tag.textContent = label;
+                        tags.appendChild(tag);
+                    });
+
+                    item.append(meta, highlights, tags);
+                    ui.timelineList.appendChild(item);
+                });
+        }
+
+        async function loadTimeline(customerId) {
+            if (!customerId) {
+                renderTimeline({ events: [] });
+                return;
+            }
+
             try {
-                const response = await fetch('/api/config');
-                config = await response.json();
-                if (!config.publicKey || !config.assistantId) {
-                    throw new Error("Missing VAPI_PUBLIC_KEY or VAPI_ASSISTANT_ID in .env");
+                const response = await fetch(`/feedback/memory/timeline/${encodeURIComponent(customerId)}`);
+                if (!response.ok) {
+                    throw new Error("timeline unavailable");
                 }
-                updateStatus("SYSTEM_READY", "success");
-            } catch (err) {
-                console.error("Config fetch error:", err);
-                updateStatus("CONFIG_ERROR: Check .env file", "error");
+                const data = await response.json();
+                renderTimeline(data);
+            } catch (error) {
+                renderTimeline({ events: [] });
             }
         }
 
-        function updateStatus(text, type) {
-            statusText.textContent = text.toUpperCase();
-            statusText.className = 'status-text ' + (type === 'error' ? 'error' : '');
+        async function postJson(url, payload) {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                const detail = data.detail || data.error_message || `Request failed: ${response.status}`;
+                throw new Error(detail);
+            }
+            return data;
         }
 
-        async function toggleCall() {
-            if (!config) {
-                alert("Config not loaded. Please wait.");
+        async function startSession() {
+            const customerId = ui.customerId.value.trim();
+            if (!customerId) {
+                setStatus("Missing customer reference", "offline");
                 return;
             }
 
-            if (typeof Vapi !== 'function') {
-                updateStatus("SDK_LOADING_FAILURE", "error");
-                console.error("Vapi class not found in memory!");
+            clearTranscript();
+            ui.memoryBanner.classList.remove("visible");
+            state.transcript = [];
+            state.customerId = customerId;
+            state.preferredLanguage = "";
+            await loadTimeline(customerId);
+            setStatus("Starting session...", "online");
+
+            try {
+                const data = await postJson("/session/start", {
+                    customer_id: customerId,
+                    customer_name: ui.customerName.value.trim() || null,
+                    session_type: "home_loan_processing",
+                    agent_id: ui.agentId.value,
+                    consent_id: "local_demo_consent"
+                });
+
+                state.sessionId = data.session_id;
+                setActive(true);
+                setStatus(`Session ${data.session_id} active`, "online");
+
+                if (data.has_prior_context && data.context_summary) {
+                    ui.memoryBanner.classList.add("visible");
+                    ui.memoryText.textContent = data.context_summary;
+                }
+
+                renderBubble("system", `Session started for ${customerId}.`);
+                pushTranscript("ai", data.greeting_message);
+                ui.messageBox.focus();
+            } catch (error) {
+                renderBubble("system", `Could not start session: ${error.message}`);
+                setStatus("Session start failed", "offline");
+                setActive(false);
+            }
+        }
+
+        async function sendMessage() {
+            const text = ui.messageBox.value.trim();
+            if (!text || !state.sessionId) {
                 return;
             }
 
-            if (!vapi) {
-                // START CALL
-                vapi = new Vapi(config.publicKey);
-                updateStatus("CONNECTING...", "success");
-                
-                vapi.start(config.assistantId);
+            ui.messageBox.value = "";
+            pushTranscript("user", text);
+            setStatus("Assistant responding...", "online");
 
-                vapi.on('call-start', () => {
-                    updateStatus("IN_CALL", "success");
-                    callBtn.classList.add('active');
-                    callCard.classList.add('active');
-                    if(window.addLog) window.addLog("Call established successfully.", "system");
+            try {
+                const data = await postJson("/session/converse", {
+                    session_id: state.sessionId,
+                    customer_id: state.customerId,
+                    customer_message: text
                 });
 
-                vapi.on('call-end', () => {
-                    cleanup();
-                });
+                if (data.preferred_language) {
+                    state.preferredLanguage = data.preferred_language;
+                }
 
-                vapi.on('message', (msg) => {
-                    if (msg.type === 'transcript' && msg.transcriptType === 'final') {
-                        const speaker = msg.role === 'user' ? 'USER' : 'AI';
-                        if(window.addLog) window.addLog(`${speaker}: ${msg.transcript}`, msg.role);
-                    }
-                });
-
-                vapi.on('error', (err) => {
-                    console.error("Vapi Error:", err);
-                    updateStatus("CONNECTION_FAILED", "error");
-                    cleanup();
-                });
-
-            } else {
-                // STOP CALL
-                vapi.stop();
-                cleanup();
+                pushTranscript("ai", data.agent_response);
+                setStatus(
+                    state.preferredLanguage
+                        ? `Session active | ${state.preferredLanguage}`
+                        : "Session active",
+                    "online"
+                );
+            } catch (error) {
+                renderBubble("system", `Send failed: ${error.message}`);
+                setStatus("Message failed", "offline");
             }
         }
 
-        function cleanup() {
-            if(vapi) {
-                vapi = null;
+        async function endSession() {
+            if (!state.sessionId) {
+                return;
             }
-            updateStatus("CALL_ENDED", "success");
-            callBtn.classList.remove('active');
-            callCard.classList.remove('active');
-            if(window.addLog) window.addLog("Call ended.", "system");
-            setTimeout(() => {
-                if(!vapi) updateStatus("READY_FOR_COMMUNICATION", "success");
-            }, 3000);
+
+            setStatus("Saving session...", "online");
+
+            try {
+                const data = await postJson("/session/end", {
+                    session_id: state.sessionId,
+                    transcript: compiledTranscript()
+                });
+
+                renderBubble(
+                    "system",
+                    `Session ended. ${data.facts_count} facts synced.`
+                );
+                setStatus("Session completed", "online");
+                await loadTimeline(state.customerId);
+            } catch (error) {
+                renderBubble("system", `End session failed: ${error.message}`);
+                setStatus("End session failed", "offline");
+            } finally {
+                state.sessionId = null;
+                setActive(false);
+            }
         }
 
-        callBtn.onclick = toggleCall;
-        fetchConfig();
+        ui.startCall.addEventListener("click", startSession);
+        ui.endCall.addEventListener("click", endSession);
+        ui.sendMessage.addEventListener("click", sendMessage);
+        ui.messageBox.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        document.querySelectorAll("[data-chip]").forEach((button) => {
+            button.addEventListener("click", () => {
+                ui.messageBox.value = button.dataset.chip;
+                ui.messageBox.focus();
+            });
+        });
+
+        ui.customerId.addEventListener("change", () => loadTimeline(ui.customerId.value.trim()));
+        loadTimeline(ui.customerId.value.trim());
     </script>
 </body>
 </html>

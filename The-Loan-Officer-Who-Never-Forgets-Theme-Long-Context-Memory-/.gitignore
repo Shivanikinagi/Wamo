@@ -12,6 +12,8 @@ env/
 # Database
 *.db
 *.sqlite3
+.live-check/
+*.pid
 
 # OS stuff
 .DS_Store

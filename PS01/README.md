@@ -150,7 +150,7 @@ Interactive mode supports:
 - Realtime test: `python3 scripts/realtime_memory_test.py --mode auto --customer <id>`
 - Quick shell flow: `bash quick_test.sh`
 
-## Troubleshooting
+## Troubleshooting  
 
 - If command returns exit 127: it usually means shell command formatting or unknown command in terminal.
 - If API calls return empty/JSON decode errors just after restart: wait 1-2 seconds and retry once.

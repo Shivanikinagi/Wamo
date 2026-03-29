@@ -18,14 +18,24 @@ from src.core.demo_seeder import DemoSeeder
 from src.core.evaluation_harness import EvaluationHarness
 from src.core.branch_lock_manager import BranchLockManager
 from src.core.tenant_registry import TenantRegistry
+from src.core.transcript_archive import TranscriptArchive
+from src.core.chroma_transcript_store import ChromaTranscriptStore
 from src.api.middleware import ConsentDB
 from src.preprocessing.tokenizer import BankingTokenizer
-from src.infra.redpanda_producer import RedpandaProducer
-from src.infra.redpanda_consumer import RedpandaConsumer
 from src.infra.theme_memory_client import ThemeMemoryClient
 import redis.asyncio as redis
 from typing import Optional, Annotated
 from fastapi import Depends
+
+try:
+    from src.infra.redpanda_producer import RedpandaProducer
+except Exception:  # pragma: no cover - optional in local test environments
+    RedpandaProducer = None
+
+try:
+    from src.infra.redpanda_consumer import RedpandaConsumer
+except Exception:  # pragma: no cover - optional in local test environments
+    RedpandaConsumer = None
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +60,8 @@ _tenant_registry: Optional[TenantRegistry] = None
 _redpanda_producer: Optional[RedpandaProducer] = None
 _redpanda_consumer: Optional[RedpandaConsumer] = None
 _theme_memory_client: Optional[ThemeMemoryClient] = None
+_transcript_archive: Optional[TranscriptArchive] = None
+_chroma_transcript_store: Optional[ChromaTranscriptStore] = None
 
 
 def _parse_redpanda_brokers() -> list[str]:
@@ -73,9 +85,10 @@ async def get_mem0_bridge() -> Mem0Bridge:
     global _mem0_bridge
     if _mem0_bridge is None:
         from src.infra.mem0_init import init_mem0
-        memory = init_mem0()
+        bank_id = os.getenv("BANK_ID", "cooperative_bank_01")
+        memory = init_mem0(bank_id=bank_id)
         wal_logger = await get_wal_logger()
-        _mem0_bridge = Mem0Bridge(memory=memory, wal_logger=wal_logger)
+        _mem0_bridge = Mem0Bridge(memory=memory, wal_logger=wal_logger, bank_id=bank_id)
     return _mem0_bridge
 
 
@@ -97,7 +110,10 @@ async def get_consent_db() -> ConsentDB:
     """Get ConsentDB instance."""
     global _consent_db
     if _consent_db is None:
-        _consent_db = ConsentDB(db_path="/tmp/ps01_consent.db")
+        project_root = Path(__file__).resolve().parents[2]
+        default_db = project_root / "data" / "sqlite" / "consent.db"
+        default_db.parent.mkdir(parents=True, exist_ok=True)
+        _consent_db = ConsentDB(db_path=os.getenv("CONSENT_DB_PATH", str(default_db)))
     return _consent_db
 
 
@@ -106,11 +122,14 @@ async def get_redis_cache() -> redis.Redis:
     global _redis_cache
     if _redis_cache is None:
         try:
-            _redis_cache = await redis.from_url(
+            candidate = await redis.from_url(
                 os.getenv("REDIS_URL", "redis://localhost:6380")
             )
+            await candidate.ping()
+            _redis_cache = candidate
         except Exception:
             # If Redis is not available, return None (graceful degradation)
+            _redis_cache = None
             return None
     return _redis_cache
 
@@ -118,6 +137,9 @@ async def get_redis_cache() -> redis.Redis:
 async def get_redpanda_producer() -> Optional[RedpandaProducer]:
     """Get Redpanda producer instance (graceful degradation when broker unavailable)."""
     global _redpanda_producer
+
+    if RedpandaProducer is None:
+        return None
 
     if _redpanda_producer is None:
         bank_id = os.getenv("BANK_ID", "cooperative_bank_01")
@@ -140,6 +162,9 @@ async def get_redpanda_producer() -> Optional[RedpandaProducer]:
 async def get_redpanda_consumer() -> RedpandaConsumer:
     """Get Redpanda consumer instance for background orchestration."""
     global _redpanda_consumer
+
+    if RedpandaConsumer is None:
+        return None
 
     if _redpanda_consumer is None:
         bank_id = os.getenv("BANK_ID", "cooperative_bank_01")
@@ -176,6 +201,28 @@ async def get_tokenizer() -> BankingTokenizer:
     return _tokenizer
 
 
+async def get_transcript_archive() -> TranscriptArchive:
+    """Get local SQLite archive used for transcript durability and local session fallback."""
+    global _transcript_archive
+    if _transcript_archive is None:
+        project_root = Path(__file__).resolve().parents[2]
+        default_db = project_root / "data" / "sqlite" / "transcripts.db"
+        archive_path = os.getenv("TRANSCRIPT_ARCHIVE_PATH", str(default_db))
+        _transcript_archive = TranscriptArchive(db_path=archive_path)
+    return _transcript_archive
+
+
+async def get_chroma_transcript_store() -> ChromaTranscriptStore:
+    """Get local ChromaDB transcript mirror used for finalized session storage."""
+    global _chroma_transcript_store
+    if _chroma_transcript_store is None:
+        project_root = Path(__file__).resolve().parents[2]
+        bank_id = os.getenv("BANK_ID", "cooperative_bank_01")
+        default_path = project_root / "chroma_db" / bank_id
+        _chroma_transcript_store = ChromaTranscriptStore(path=str(default_path))
+    return _chroma_transcript_store
+
+
 # Phase 6: Memory Quality Layer
 async def get_feedback_processor(
     wal: Annotated[WALLogger, Depends(get_wal_logger)],
@@ -194,14 +241,14 @@ async def get_feedback_processor(
 
 async def get_memory_timeline(
     wal: Annotated[WALLogger, Depends(get_wal_logger)],
-    mem0: Annotated[Mem0Bridge, Depends(get_mem0_bridge)]
 ) -> MemoryTimeline:
     """Get MemoryTimeline instance."""
     global _memory_timeline
     if _memory_timeline is None:
         w = wal or await get_wal_logger()
-        m = mem0 or await get_mem0_bridge()
-        _memory_timeline = MemoryTimeline(wal=w, memory=m)
+        # Timeline reconstruction is WAL-only and should stay available even if
+        # mem0/Ollama are offline in a local demo environment.
+        _memory_timeline = MemoryTimeline(wal=w, memory=None)
     return _memory_timeline
 
 

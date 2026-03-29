@@ -62,15 +62,19 @@ class BriefingBuilder:
         # Step 1: Check Redis cache
         if self.redis_cache:
             cache_key = f"briefing:{customer_id}"
-            cached = await self.redis_cache.get(cache_key)
-            if cached:
-                # Cache hit
-                if isinstance(cached, bytes):
-                    return json.loads(cached.decode())
-                elif isinstance(cached, dict):
-                    return cached
-                elif isinstance(cached, str):
-                    return json.loads(cached)
+            try:
+                cached = await self.redis_cache.get(cache_key)
+                if cached:
+                    # Cache hit
+                    if isinstance(cached, bytes):
+                        return json.loads(cached.decode())
+                    elif isinstance(cached, dict):
+                        return cached
+                    elif isinstance(cached, str):
+                        return json.loads(cached)
+            except Exception:
+                # Redis is optional in local mode; continue without cache.
+                pass
 
         # Step 2: Cache miss — build from memory
         briefing = await self._assemble_briefing(customer_id)
@@ -290,6 +294,10 @@ class BriefingBuilder:
     def _extract_customer_name(self, memories: List[Dict[str, Any]]) -> Optional[str]:
         """Extract customer name from memories if available."""
         for mem in memories:
+            if str(mem.get("type", "")).lower() == "customer_name":
+                value = str(mem.get("value", "")).strip()
+                if value:
+                    return value
             content = mem.get("content", "").lower()
             if "name:" in content or "customer:" in content:
                 # Simple extraction — could be more sophisticated
@@ -312,10 +320,13 @@ class BriefingBuilder:
         return datetime.now(timezone.utc).isoformat()
 
     def _build_deterministic_recall(self, memories: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Build grounded recall fields (income/co-applicant/date) for natural, factual opening lines."""
+        """Build grounded recall fields for natural, factual opening lines."""
         latest_income = None
         latest_co_name = None
         latest_co_income = None
+        latest_loan_amount = None
+        latest_loan_type = None
+        latest_property_stage = None
         latest_ts = None
 
         for mem in memories:
@@ -332,11 +343,20 @@ class BriefingBuilder:
                 latest_co_name = {"value": str(value), "timestamp": ts}
             elif m_type in {"co_applicant_income", "co_income"} and value:
                 latest_co_income = {"value": str(value), "timestamp": ts}
+            elif m_type in {"loan_amount", "loan_amount_lakh"} and value:
+                latest_loan_amount = {"value": str(value), "timestamp": ts}
+            elif m_type == "loan_type" and value:
+                latest_loan_type = {"value": str(value), "timestamp": ts}
+            elif m_type in {"property_stage", "property_status"} and value:
+                latest_property_stage = {"value": str(value), "timestamp": ts}
 
         recall = {
             "latest_income": latest_income,
             "co_applicant_name": latest_co_name,
             "co_applicant_income": latest_co_income,
+            "loan_amount_lakh": latest_loan_amount,
+            "loan_type": latest_loan_type,
+            "property_stage": latest_property_stage,
             "last_discussed_at": latest_ts,
             "last_discussed_day": None,
         }
@@ -360,6 +380,6 @@ class BriefingBuilder:
         for mem in reversed(memories):
             if str(mem.get("type")) == "preferred_language":
                 value = str(mem.get("value", "")).strip().lower()
-                if value in {"english", "hindi"}:
+                if value in {"english", "hindi", "hinglish"}:
                     return value
-        return "hindi"
+        return ""

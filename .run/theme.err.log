@@ -1,0 +1,6 @@
+INFO:     Started server process [5844]
+INFO:     Waiting for application startup.
+INFO:app.database:✅ Memory DB initialized at sqlite+aiosqlite:///./brainback.db
+INFO:app.main:✅ BrainBack.AI started — Ready to serve
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8099 (Press CTRL+C to quit)
