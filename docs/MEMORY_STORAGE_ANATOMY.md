@@ -322,7 +322,7 @@ rm /home/parth/ccode/wam0/mem0_history/default/default.db
 
 ## ✅ Storage Health Checklist
 
-Before demo:
+Before validation tests:
 
 ```bash
 # 1. Does WAL exist and have data?

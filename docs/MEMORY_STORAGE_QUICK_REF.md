@@ -365,7 +365,7 @@ Table: history
 
 ## ✅ Verification Checklist
 
-Before running demo:
+Before running validation tests:
 
 ```bash
 # 1. WAL has data

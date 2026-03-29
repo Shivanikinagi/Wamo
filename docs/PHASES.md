@@ -9,7 +9,7 @@
 | 2 | Multi-Tenant + WAL Evolution | ✅ Complete |
 | 3 | Central Processing Pipeline | 🔲 Next |
 | 4 | FastAPI Session Endpoints | 🔲 Pending |
-| 5 | End-to-End Demo | 🔲 Pending |
+| 5 | End-to-End Testing | 🔲 Pending |
 
 ---
 
@@ -130,11 +130,11 @@ GET /customer/{customer_id}/summary
 
 ---
 
-## Phase 5 — End-to-End Demo 🔲
+## Phase 5 — End-to-End Testing 🔲
 
-**Goal**: Demonstrate 4 Rajesh sessions showing persistent memory across agents.
+**Goal**: Validate 4 Rajesh sessions showing persistent memory across agents.
 
-**Demo scenario** (`demo-rajesh.md`):
+**Test scenario** (`test-rajesh.md`):
 
 | Session | Agent | What Rajesh says | What system remembers |
 |---|---|---|---|
@@ -143,17 +143,16 @@ GET /customer/{customer_id}/summary
 | S003 | AGT_C | EMI burden ₹8K/month | Conflict: income now ₹60K (was ₹55K) → flagged |
 | S004 | AGT_D | Final verification | Full history: net_income=₹67K, eligibility=₹40.2L |
 
-**Judge demo criteria**:
+**Validation criteria**:
 - No repeated questions asked
 - System surfaces prior facts from different agents
 - Conflict flagged and shown
 - Derived eligibility calculated correctly
-- Zero cloud API calls during demo
+- Zero cloud API calls during execution
 
 **Files to create**:
-- `.claude/commands/demo-rajesh.md` — slash command for full demo run
-- `.claude/commands/session-start.md` — session initialization workflow
-- `.claude/commands/session-end.md` — session close workflow
-- `.claude/commands/wal-replay.md` — WAL recovery workflow
+- `tests/test_rajesh_scenario.md` — complete test scenario documentation
+- `tests/test_session_workflow.py` — session initialization and close tests
+- `tests/test_wal_replay.py` — WAL recovery workflow tests
 - `tests/test_phase5_e2e.py` — full integration test (4 sessions)
 - `docker/docker-compose.yml` — single-command stack startup

@@ -1,0 +1,12 @@
+branch_id: branch_a
+bank_id: cooperative_bank_01
+central_url: http://central-hub:8001
+redpanda_brokers:
+  - redpanda:9092
+redis:
+  host: redis-replica
+  port: 6379
+  role: replica
+  master_host: redis-primary
+  master_port: 6379
+wal_path: /data/wal.jsonl

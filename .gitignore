@@ -1,8 +1,47 @@
-# Ignore Redis dump file
-redis-data/dump.rdb
-redis-data/
-postgres-data/
-*.rdb
+# Python
+*.pyc
+__pycache__/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Environment
 .env
+.venv/
+venv/
+
+# Data & Databases
+chroma_db/
+mem0_history/
 consent.db
-**/.live-check/
+brainback.db
+dump.rdb
+*.db
+*.sqlite3
+
+# Logs & Runtime
+*.log
+*.pid
+.run/
+.live-check/
+.mem0_home/
+
+# Test artifacts
+_tmp_chroma_test/
+test_chroma_*/
+test_mem0_*/
+
+# Redpanda data
+redpanda-data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

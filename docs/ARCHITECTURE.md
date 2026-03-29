@@ -94,7 +94,7 @@ Every `mem0.add()` call is wrapped with `@require_consent(scope="home_loan_proce
 mem0_bridge.add_with_wal(session_id="S001", ...)  # → 403
 
 # After recording consent → allowed
-consent_db.record_consent("S001", "C001", "home_loan_processing", bank_id="demo_bank")
+consent_db.record_consent("S001", "C001", "home_loan_processing", bank_id="cooperative_bank_01")
 mem0_bridge.add_with_wal(session_id="S001", ...)  # → proceeds
 ```
 
@@ -123,7 +123,7 @@ mark_shipped=True    ← only after successful Redpanda publish
   "timestamp": "2025-03-18T14:22:00Z",
   "customer_id": "hashed_C001",
   "agent_id": "AGT_D",
-  "bank_id": "demo_bank",
+  "bank_id": "cooperative_bank_01",
   "facts": [{
     "fact_id": "F012",
     "type": "income",
@@ -213,7 +213,7 @@ Every API request must include `X-Bank-ID` header.
 
 ```
 Request without X-Bank-ID → HTTP 400
-Request with X-Bank-ID: demo_bank → TenantContext(bank_id="demo_bank")
+Request with X-Bank-ID: cooperative_bank_01 → TenantContext(bank_id="cooperative_bank_01")
 ```
 
 Tenant context flows through:
@@ -271,7 +271,7 @@ Tenant context flows through:
 | **Phase 2** | Multi-tenant: TenantMiddleware, WAL evolution, ConsentDB bank_id | ✅ Complete |
 | **Phase 3** | Central processing pipeline: consumer + Mem0 integration | 🔲 Next |
 | **Phase 4** | FastAPI endpoints: `/session/start`, `/session/end` | 🔲 Pending |
-| **Phase 5** | End-to-end demo: 4 Rajesh sessions, judge demo flow | 🔲 Pending |
+| **Phase 5** | End-to-end testing: 4 Rajesh sessions, complete flow validation | 🔲 Pending |
 
 ---
 
