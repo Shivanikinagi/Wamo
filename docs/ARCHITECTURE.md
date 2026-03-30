@@ -18,7 +18,7 @@ Rajesh, a home loan applicant, speaks to 4 different loan officers across multip
 | **Model** | Phi-4-Mini 3.8B only. No external API calls (no GPT-4, no Claude) |
 | **Data Residency** | All data stays on bank server. Mem0 self-hosted only |
 | **Language** | Hindi + English via AI4Bharat IndicASR v2 |
-| **PII** | spaCy NER tokenization runs BEFORE every `mem0.add()` call |
+| **PII** | Regex-based tokenization runs BEFORE every `mem0.add()` call |
 | **Hardware** | CPU-only, 16GB RAM, 500GB SSD |
 
 ---
@@ -28,7 +28,7 @@ Rajesh, a home loan applicant, speaks to 4 different loan officers across multip
 ```
 ┌─────────────────────── BRANCH EDGE NODES ──────────────────────┐
 │                                                                   │
-│  Audio/Text → spaCy NER → Consent Gate → WAL → Mem0 (local)   │
+│  Audio/Text → Tokenizer → Consent Gate → WAL → Mem0 (local)   │
 │                                               ↓                  │
 │                                         WALShipper              │
 │                                               ↓                  │
@@ -51,7 +51,7 @@ Rajesh, a home loan applicant, speaks to 4 different loan officers across multip
 | Layer | Technology | Purpose |
 |---|---|---|
 | Transcription | AI4Bharat IndicASR v2 (Docker) | Hindi + English speech-to-text |
-| PII Masking | spaCy 3.8 NER | Tokenize PAN, Aadhaar, Phone before storage |
+| PII Masking | Regex-based tokenizer | Tokenize PAN, Aadhaar, Phone before storage |
 | Memory Engine | Mem0 0.0.15 + ChromaDB | Vector + graph memory, per-bank isolation |
 | Local LLM | Phi-4-Mini via Ollama | Post-session compaction, no cloud |
 | Durability | WAL (`wal.jsonl`) | Crash-safe fact storage |
@@ -237,7 +237,7 @@ Tenant context flows through:
 
 2. Conversation happens
    → Audio → IndicASR v2 → text transcript
-   → spaCy NER tokenizes PII
+   → Regex-based tokenizer masks PII
    → Facts extracted
 
 3. Fact storage (per fact)

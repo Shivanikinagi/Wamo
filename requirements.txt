@@ -1,6 +1,5 @@
 fastapi==0.105.0
 uvicorn==0.24.0
-spacy==3.8.12
 mem0ai==0.0.15
 ollama==0.6.1
 docker==7.0.0

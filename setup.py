@@ -8,7 +8,6 @@ setup(
     install_requires=[
         "fastapi==0.104.1",
         "uvicorn==0.24.0",
-        "spacy==3.7.2",
         "mem0ai==0.0.15",
         "ollama==0.1.34",
         "docker==7.0.0",

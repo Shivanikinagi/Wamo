@@ -13,7 +13,7 @@ It solves a critical problem in banking: Rajesh, a home loan applicant, speaks t
 | **Model** | Phi-4-Mini 3.8B only. No external API calls |
 | **Data Residency** | All data stays on bank server. Mem0 self-hosted only |
 | **Language** | Hindi + English via AI4Bharat IndicASR v2 |
-| **PII** | spaCy NER tokenization runs BEFORE every mem0.add() call |
+| **PII** | Regex-based tokenization runs BEFORE every mem0.add() call |
 | **Hardware** | CPU-only, 16GB RAM, 500GB SSD |
 
 ## Technology Stack
@@ -21,7 +21,7 @@ It solves a critical problem in banking: Rajesh, a home loan applicant, speaks t
 | Layer | Technology | Purpose |
 |---|---|---|
 | Transcription | AI4Bharat IndicASR v2 (Docker) | Hindi + English speech-to-text |
-| PII Masking | spaCy 3.8 NER | Tokenize PAN, Aadhaar, Phone before storage |
+| PII Masking | Regex-based tokenizer | Tokenize PAN, Aadhaar, Phone before storage |
 | Memory Engine | Mem0 0.0.15 + ChromaDB | Vector + graph memory, per-bank isolation |
 | Local LLM | Phi-4-Mini via Ollama | Post-session compaction, no cloud |
 | Durability | WAL (`wal.jsonl`) | Crash-safe fact storage |
@@ -83,7 +83,7 @@ curl -s http://localhost:8000/health
 ```
 ┌─────────────────────── BRANCH EDGE NODES ──────────────────────┐
 │                                                                   │
-│  Audio/Text → spaCy NER → Consent Gate → WAL → Mem0 (local)   │
+│  Audio/Text → Tokenizer → Consent Gate → WAL → Mem0 (local)   │
 │                                               ↓                  │
 │                                         WALShipper              │
 │                                               ↓                  │
@@ -143,7 +143,7 @@ Every request requires `X-Bank-ID` header. Data is isolated at every layer:
    - System prompt injected with context
 
 2. **Conversation**: Audio → IndicASR → text → facts extracted
-   - spaCy NER tokenizes PII
+   - Regex-based tokenizer masks PII
    - ConflictDetector checks contradictions
    - AdversarialGuard flags suspicious changes
    - WAL append → mem0.add()
@@ -249,7 +249,7 @@ wam01/
 - Runtime agent identity from session metadata
 
 ### Layer 2: Preprocessing Layer
-- Tokenization with `BankingTokenizer` before persisted writes
+- Tokenization with `BankingTokenizer` (regex-based) before persisted writes
 - Prevents raw sensitive values from being written into WAL facts
 
 ### Layer 3: Durability Layer (WAL)
