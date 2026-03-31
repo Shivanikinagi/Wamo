@@ -1,10 +1,12 @@
-The Loan Officer Who Never Forgets
+# PS-01: The Loan Officer Who Never Forgets
 
 A local, memory-augmented loan assistant for multi-session conversations with WAL-first durability, Mem0 recall, and phi4-mini generation through Ollama.
 
+> **🚀 New to PS-01?** Start with [START_HERE.md](START_HERE.md) for a 5-minute quick start guide!
+
 ## Overview
 
-It solves a critical problem in banking: Rajesh, a home loan applicant, speaks to 4 different loan officers across multiple visits. Each time, he repeats the same information. It provides a persistent, on-premise memory layer that gives every loan officer complete context about every customer from the first word.
+PS-01 solves a critical problem in banking: Rajesh, a home loan applicant, speaks to 4 different loan officers across multiple visits. Each time, he repeats the same information. PS-01 provides a persistent, on-premise memory layer that gives every loan officer complete context about every customer from the first word.
 
 ## Non-Negotiable Constraints
 
@@ -177,15 +179,50 @@ pytest tests/test_phase2_multitenant.py -v
 pytest tests/test_phase3_pipeline.py -v
 ```
 
-### Run Quick Test
+## Testing
+
+### Quick Test
 ```bash
 bash quick_test.sh
 ```
 
-### Run Evaluation
+### System Tests
+Run comprehensive system tests (requires API server running):
 ```bash
-bash run_eval.sh
+bash test_system.sh
 ```
+
+Tests all components end-to-end:
+- API health and endpoints
+- Session management flow
+- Memory persistence across sessions
+- WAL file integrity
+- PII tokenization
+- Conflict detection
+
+### End-to-End Demo
+Run the complete Rajesh 4-session journey:
+```bash
+bash run_demo.sh
+```
+
+This simulates the real-world scenario:
+1. Session 1 (Agent A): Initial information
+2. Session 2 (Agent B): Additional details (sees Agent A's notes)
+3. Session 3 (Agent C): Property documents (sees full history)
+4. Session 4 (Agent D): Final verification (complete context)
+
+### Unit Tests
+```bash
+# Run all unit tests
+pytest tests/ -v
+
+# Run specific test suite
+pytest tests/test_phase5_session.py -v
+```
+
+### Detailed Testing Guide
+See [TESTING_GUIDE.md](TESTING_GUIDE.md) for comprehensive testing instructions, troubleshooting, and manual test procedures.
 
 ## Project Structure
 
