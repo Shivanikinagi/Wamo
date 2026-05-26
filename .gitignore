@@ -1,0 +1,7 @@
+# Ignore Redis dump file
+redis-data/dump.rdb
+redis-data/
+postgres-data/
+*.rdb
+.env
+.venv/

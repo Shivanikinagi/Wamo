@@ -1,0 +1,11 @@
+*.pyc
+__pycache__/
+.pytest_cache/
+.env
+chroma_db/
+mem0_history/
+consent.db
+*.log
+dist/
+build/
+*.egg-info/
